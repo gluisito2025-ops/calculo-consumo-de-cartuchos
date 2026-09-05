@@ -191,4 +191,20 @@ if(gate)gate.remove();
 document.body.classList.remove('locked');
 })()
 </script>
+<script>
+(function(){
+const dailyConsumption=1.37,previousCalc=window.calc,previousRender=window.render;
+const consumedValue=item=>Math.min(250,Math.max(0,Number(item.cartucho1)||0)+Math.max(0,Number(item.cartucho2)||0));
+let inferred=false;
+data.forEach(item=>{
+const consumed=consumedValue(item);
+if(!item.date&&consumed>0){const date=new Date(Date.now()-Math.round(consumed/dailyConsumption)*86400000);item.date=date.toISOString().slice(0,10);item.inferredDate=true;inferred=true}
+});
+if(inferred){const serialized=JSON.stringify(data);localStorage.setItem('skf-system24-data',serialized);localStorage.setItem('skf-real-data',serialized)}
+window.calc=function(item){const result=previousCalc(item);if(!item.inferredDate)return result;const consumed=consumedValue(item),remain=Math.max(0,250-consumed),change=new Date(item.date+'T00:00:00');change.setMonth(change.getMonth()+6);return{...result,d:Math.round(consumed/dailyConsumption),used:consumed,remain,pct:consumed/250*100,left:remain/dailyConsumption,change,daily:dailyConsumption}};
+window.render=function(){previousRender();document.querySelectorAll('#rows input[data-k="date"]').forEach(input=>{const item=data[Number(input.dataset.i)];if(item?.inferredDate){input.title='Fecha estimada a partir del consumo manual';input.setAttribute('aria-label','Fecha estimada a partir del consumo manual')}})};
+rows.addEventListener('change',event=>{const field=event.target;if(field.dataset.k==='date'&&field.dataset.i!==undefined){delete data[Number(field.dataset.i)].inferredDate;localStorage.setItem('skf-system24-data',JSON.stringify(data));localStorage.setItem('skf-real-data',JSON.stringify(data))}});
+window.render();
+})()
+</script>
 </body></html>
