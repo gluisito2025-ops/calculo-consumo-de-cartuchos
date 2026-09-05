@@ -138,8 +138,8 @@ const renderCapacity=()=>{capacityList.innerHTML=data.map(item=>{const result=wi
 const renderRanking=()=>{const ranking=data.map(item=>({item,result:window.calc(item)})).sort((a,b)=>b.result.used-a.result.used).slice(0,10);$('bars').innerHTML='<div class="ranking-list">'+ranking.map((entry,index)=>{const percentage=Math.min(100,entry.result.used/entry.result.totalCapacity*100);return '<div class="ranking-item"><span class="ranking-rank">'+String(index+1).padStart(2,'0')+'</span><strong class="ranking-name">'+chartEscape(entry.item.name)+'</strong><div class="ranking-bar"><i style="width:'+percentage+'%"></i></div><div class="ranking-value"><b>'+fmt(entry.result.used)+' ml</b><span>'+Math.round(percentage)+'% consumido · '+fmt(entry.result.remain)+' ml restantes</span></div></div>'}).join('')+'</div>'};
 const currentRender=window.render;window.render=function(){currentRender();renderCapacity();renderRanking();if($('dailyDose'))$('dailyDose').textContent='1.37 ml/día'};
 document.querySelectorAll('#rows input.measurement,[name="cartucho1"],[name="cartucho2"]').forEach(input=>{input.max='125'});
-document.querySelectorAll('#rows input.measurement').forEach(input=>{input.readOnly=true;input.title='Capacidad del cartucho: 125 ml'});
-const lockCapacity=()=>document.querySelectorAll('#rows input.measurement').forEach(input=>{input.max='125';input.readOnly=true;input.title='Capacidad fija: 125 ml'});
+document.querySelectorAll('#rows input.measurement').forEach(input=>{input.readOnly=false;input.title='Ingrese el consumo manual, máximo 125 ml'});
+const lockCapacity=()=>document.querySelectorAll('#rows input.measurement').forEach(input=>{input.max='125';input.readOnly=false;input.title='Ingrese el consumo manual, máximo 125 ml'});
 window.render();lockCapacity();setInterval(()=>{window.render();lockCapacity()},60000);
 })();
 </script>
@@ -205,6 +205,14 @@ window.calc=function(item){const result=previousCalc(item);if(!item.inferredDate
 window.render=function(){previousRender();document.querySelectorAll('#rows input[data-k="date"]').forEach(input=>{const item=data[Number(input.dataset.i)];if(item?.inferredDate){input.title='Fecha estimada a partir del consumo manual';input.setAttribute('aria-label','Fecha estimada a partir del consumo manual')}})};
 rows.addEventListener('change',event=>{const field=event.target;if(field.dataset.k==='date'&&field.dataset.i!==undefined){delete data[Number(field.dataset.i)].inferredDate;localStorage.setItem('skf-system24-data',JSON.stringify(data));localStorage.setItem('skf-real-data',JSON.stringify(data))}});
 window.render();
+})()
+</script>
+<script>
+(function(){
+const enforceManualCartridges=()=>document.querySelectorAll('#rows input.measurement').forEach(input=>{input.max='125';input.readOnly=false;input.title='Ingrese el consumo manual, máximo 125 ml'});
+const renderWithManualCartridges=window.render;
+window.render=function(){renderWithManualCartridges();enforceManualCartridges()};
+enforceManualCartridges();
 })()
 </script>
 </body></html>
