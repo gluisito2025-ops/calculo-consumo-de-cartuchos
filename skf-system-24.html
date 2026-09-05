@@ -216,3 +216,16 @@ enforceManualCartridges();
 })()
 </script>
 </body></html>
+<script>
+(function(){
+const MIN=0,MAX=125,keys=['skf-system24-data','skf-real-data'];
+const normalize=value=>Math.min(MAX,Math.max(MIN,Number(value)||0));
+const persist=()=>{const serialized=JSON.stringify(data);keys.forEach(key=>localStorage.setItem(key,serialized))};
+const enforce=()=>document.querySelectorAll('#rows input.measurement').forEach(input=>{const item=data[Number(input.dataset.i)];input.min=String(MIN);input.max=String(MAX);input.readOnly=false;if(item){item[input.dataset.k]=normalize(item[input.dataset.k]);input.value=item[input.dataset.k]}});
+const previousRender=window.render;window.render=function(){previousRender();enforce()};
+const rows=document.getElementById('rows');
+rows.addEventListener('input',event=>{const input=event.target;if(!input.matches('input.measurement')||input.dataset.i===undefined)return;const item=data[Number(input.dataset.i)],key=input.dataset.k;if(!item||!['cartucho1','cartucho2'].includes(key))return;item[key]=normalize(input.value);input.value=item[key];persist()});
+rows.addEventListener('change',event=>{const input=event.target;if(!input.matches('input.measurement')||input.dataset.i===undefined)return;const item=data[Number(input.dataset.i)],key=input.dataset.k;if(!item||!['cartucho1','cartucho2'].includes(key))return;item[key]=normalize(input.value);persist();window.render()});
+enforce();
+})()
+</script>
