@@ -60,7 +60,7 @@ const real={
 'AF155709-10':[null,220,'Vías tapadas, equipo de laboratorio'],
 'AF155710-10':[null,120,'Vías tapadas, equipo de laboratorio']};
 const values={'AF076158-10':[30,30],'AF095702-10':[50,50],'AF095701-10':[50,50],'AF128334-10':[40,40],'AF128335-10':[70,70],'AF130947-10':[100,100],'AF130946-10':[60,60],'AF145965-10':[40,40],'AF145963-10':[90,90],'AF145964-10':[30,30],'AF002751-48':[100,100],'AF149273-10':[110,110],'AF149272-10':[80,80],'AF155709-10':[110,110],'AF155710-10':[60,60]};
-data.forEach(x=>{if(values[x.af]){x.cartucho1=values[x.af][0];x.cartucho2=values[x.af][1];x.notes=real[x.af][2]}});
+data.forEach(x=>{if(values[x.af]){if(x.cartucho1===undefined)x.cartucho1=values[x.af][0];if(x.cartucho2===undefined)x.cartucho2=values[x.af][1];if(!x.notes)x.notes=real[x.af][2]}});
 const originalCalc=calc;window.calc=function(x){let c=values[x.af]||[x.cartucho1||0,x.cartucho2||0],used=Math.min(250,Number(c[0]||0)+Number(c[1]||0)),remain=Math.max(0,250-used),pct=used/250*100,left=remain/1.37,change=originalCalc(x).change;return{d:Math.round(used/1.37),used,remain,pct,left,change}};
 const originalRender=render;window.render=function(){originalRender();document.querySelectorAll('#rows tr').forEach(row=>{let field=row.querySelector('[data-i]');if(!field)return;let i=+field.dataset.i,x=data[i],cells=row.children;if(cells.length<11)return;if(!row.dataset.real){let a=document.createElement('td'),b=document.createElement('td');a.innerHTML='<input type="number" min="0" max="125" value="'+(x.cartucho1??0)+'" data-i="'+i+'" data-k="cartucho1">';b.innerHTML='<input type="number" min="0" max="125" value="'+(x.cartucho2??0)+'" data-i="'+i+'" data-k="cartucho2">';row.insertBefore(a,cells[3]);row.insertBefore(b,cells[4]);row.dataset.real='1'}})};
 document.querySelector('.grid thead tr').insertBefore(Object.assign(document.createElement('th'),{textContent:'Cartucho 1'}),document.querySelector('.grid thead tr').children[3]);document.querySelector('.grid thead tr').insertBefore(Object.assign(document.createElement('th'),{textContent:'Cartucho 2'}),document.querySelector('.grid thead tr').children[4]);
@@ -92,7 +92,7 @@ const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;'
 const dateForInput=value=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(value||''))return '';const [year,month,day]=value.split('-');return day+'/'+month+'/'+year};
 const dateFromInput=value=>{const match=String(value||'').trim().match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);if(!match)return '';const day=Number(match[1]),month=Number(match[2]),year=Number(match[3]),date=new Date(year,month-1,day);return date.getFullYear()===year&&date.getMonth()===month-1&&date.getDate()===day&&year>=2000&&year<=2100?year+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0'):''};
 const measurementClass=value=>Number(value)>CARTRIDGE_CAPACITY*.8?'green':Number(value)>=CARTRIDGE_CAPACITY*.5?'yellow':'red';
-const calculate=item=>{const totalCapacity=CAPACITY,start=item.date?new Date(item.date+'T00:00:00'):null;let change=null;if(start){change=new Date(start);change.setMonth(change.getMonth()+PERIOD_MONTHS)}const elapsed=start?Math.max(0,Math.floor((Date.now()-start)/86400000)):0,used=Math.min(totalCapacity,Math.round(elapsed*DAILY)),remain=Math.max(0,totalCapacity-used),cartucho1=Math.max(0,Math.round(remain/2)),cartucho2=Math.max(0,remain-cartucho1),pct=used/totalCapacity*100,left=remain/DAILY;return{cartucho1,cartucho2,used,remain,pct,left,change,totalCapacity,daily:DAILY,elapsed}};
+const calculate=item=>{const totalCapacity=CAPACITY,start=item.date?new Date(item.date+'T00:00:00'):null;let change=null;if(start){change=new Date(start);change.setMonth(change.getMonth()+PERIOD_MONTHS)}const elapsed=start?Math.max(0,Math.floor((Date.now()-start)/86400000)):0,hasManualValues=item.cartucho1!==undefined&&item.cartucho1!==''&&item.cartucho2!==undefined&&item.cartucho2!=='',calculatedUsed=Math.min(totalCapacity,Math.round(elapsed*DAILY)),calculatedCartucho=Math.max(0,CARTRIDGE_CAPACITY-Math.round(calculatedUsed/2)),cartucho1=hasManualValues?Math.min(CARTRIDGE_CAPACITY,Math.max(0,Number(item.cartucho1)||0)):calculatedCartucho,cartucho2=hasManualValues?Math.min(CARTRIDGE_CAPACITY,Math.max(0,Number(item.cartucho2)||0)):calculatedCartucho,remain=hasManualValues?Math.min(totalCapacity,cartucho1+cartucho2):Math.min(totalCapacity,calculatedCartucho+calculatedCartucho),used=Math.max(0,totalCapacity-remain),pct=used/totalCapacity*100,left=remain/DAILY;return{cartucho1,cartucho2,used,remain,pct,left,change,totalCapacity,daily:DAILY,elapsed}};
 const state=calc=>calc.pct>=100?'red':calc.left<=60?'yellow':'green';
 const stateLabel=value=>value==='red'?'VENCIDO':value==='yellow'?'PRÓXIMO A VENCER':'NORMAL';
 const dateLabel=date=>date&&!isNaN(date.getTime())?date.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}):'';
@@ -148,7 +148,6 @@ window.render();lockCapacity();setInterval(()=>{window.render();lockCapacity()},
 const addDailyBars=()=>document.querySelectorAll('#rows tr').forEach(row=>{const cell=row.children[8],field=row.querySelector('[data-i]');if(!cell||!field)return;const result=window.calc(data[Number(field.dataset.i)]),percentage=Math.max(0,Math.min(100,result.remain/result.totalCapacity*100));cell.innerHTML='<strong>'+fmt(result.remain)+' ml</strong><div class="daily-progress"><div class="meter"><i style="width:'+percentage+'%;background:var(--cyan)"></i></div><small>'+Math.round(percentage)+'% disponible</small></div>'});
 const previousRender=window.render;window.render=function(){previousRender();addDailyBars()};
 const persistData=()=>{localStorage.setItem('skf-system24-data',JSON.stringify(data));localStorage.setItem('skf-real-data',JSON.stringify(data))};
-const logoutButton=document.createElement('button');logoutButton.className='logout-button';logoutButton.type='button';logoutButton.textContent='Cerrar sesión';logoutButton.onclick=()=>{persistData();sessionStorage.removeItem('skf-auth');location.reload()};document.querySelector('.nav').after(logoutButton);
 document.addEventListener('input',event=>{if(event.target.closest('#rows')&&event.target.dataset.i!==undefined)persistData()});
 document.addEventListener('change',event=>{if(event.target.closest('#rows')&&event.target.dataset.i!==undefined)persistData()});
 document.addEventListener('input',event=>{if(event.target.id==='search'||event.target.id==='state')window.render()},true);
@@ -209,23 +208,130 @@ window.render();
 </script>
 <script>
 (function(){
-const enforceManualCartridges=()=>document.querySelectorAll('#rows input.measurement').forEach(input=>{input.max='125';input.readOnly=false;input.title='Ingrese el consumo manual, máximo 125 ml'});
-const renderWithManualCartridges=window.render;
-window.render=function(){renderWithManualCartridges();enforceManualCartridges()};
-enforceManualCartridges();
-})()
-</script>
-</body></html>
-<script>
-(function(){
 const MIN=0,MAX=125,keys=['skf-system24-data','skf-real-data'];
 const normalize=value=>Math.min(MAX,Math.max(MIN,Number(value)||0));
 const persist=()=>{const serialized=JSON.stringify(data);keys.forEach(key=>localStorage.setItem(key,serialized))};
-const enforce=()=>document.querySelectorAll('#rows input.measurement').forEach(input=>{const item=data[Number(input.dataset.i)];input.min=String(MIN);input.max=String(MAX);input.readOnly=false;if(item){item[input.dataset.k]=normalize(item[input.dataset.k]);input.value=item[input.dataset.k]}});
-const previousRender=window.render;window.render=function(){previousRender();enforce()};
-const rows=document.getElementById('rows');
+const enforceManualCartridges=()=>document.querySelectorAll('#rows input.measurement').forEach(input=>{const item=data[Number(input.dataset.i)];input.min=String(MIN);input.max=String(MAX);input.readOnly=false;input.title='Ingrese el consumo manual, máximo 125 ml';if(item){item[input.dataset.k]=normalize(item[input.dataset.k]);input.value=item[input.dataset.k]}});
+const renderWithManualCartridges=window.render;
+window.render=function(){renderWithManualCartridges();enforceManualCartridges()};
 rows.addEventListener('input',event=>{const input=event.target;if(!input.matches('input.measurement')||input.dataset.i===undefined)return;const item=data[Number(input.dataset.i)],key=input.dataset.k;if(!item||!['cartucho1','cartucho2'].includes(key))return;item[key]=normalize(input.value);input.value=item[key];persist()});
 rows.addEventListener('change',event=>{const input=event.target;if(!input.matches('input.measurement')||input.dataset.i===undefined)return;const item=data[Number(input.dataset.i)],key=input.dataset.k;if(!item||!['cartucho1','cartucho2'].includes(key))return;item[key]=normalize(input.value);persist();window.render()});
-enforce();
+enforceManualCartridges();
 })()
 </script>
+<script>
+(function(){
+const DAILY_CONSUMPTION=1.37;
+const saveData=()=>{const serialized=JSON.stringify(data);localStorage.setItem('skf-system24-data',serialized);localStorage.setItem('skf-real-data',serialized)};
+const previousRender=window.render;
+window.render=function(){previousRender();document.querySelectorAll('#rows input.measurement').forEach(input=>{input.type='text';input.inputMode='decimal';input.removeAttribute('min');input.removeAttribute('step');input.max='125';input.readOnly=false;input.disabled=false})};
+const previousCalc=window.calc;
+window.calc=function(item){const result=previousCalc(item),cartucho1=Math.min(125,Math.max(0,Number(item.cartucho1)||0)),cartucho2=Math.min(125,Math.max(0,Number(item.cartucho2)||0)),remain=cartucho1+cartucho2,used=Math.max(0,250-remain);return{...result,cartucho1,cartucho2,used,remain,pct:used/250*100,left:remain/DAILY_CONSUMPTION}};
+const installationDate=value=>{const match=String(value||'').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);return match?new Date(Number(match[3]),Number(match[2])-1,Number(match[1])):new Date(String(value||'')+'T00:00:00')};
+const normalizedDate=value=>{const match=String(value||'').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(!match)return '';const date=new Date(Number(match[3]),Number(match[2])-1,Number(match[1]));return date.getFullYear()===Number(match[3])&&date.getMonth()===Number(match[2])-1&&date.getDate()===Number(match[1])?date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0'):''};
+const calculateFromInstallationDate=item=>{
+if(!item.date)return false;
+const start=installationDate(item.date),elapsed=Math.max(0,Math.floor((Date.now()-start)/86400000)),total=Math.min(250,Math.round(elapsed*DAILY_CONSUMPTION)),each=Math.max(0,125-Math.round(total/2));
+item.cartucho1=each;item.cartucho2=each;item.calculatedFromDate=true;item.manualCartridges=false;return true;
+};
+const inferInstallationDate=item=>{
+const remaining=Math.min(250,Math.max(0,Number(item.cartucho1)||0)+Math.max(0,Number(item.cartucho2)||0)),consumed=Math.max(0,250-remaining);
+if(!consumed)return false;
+const date=new Date(Date.now()-Math.round(consumed/DAILY_CONSUMPTION)*86400000);
+item.date=date.toISOString().slice(0,10);item.inferredDate=true;item.manualCartridges=true;return true;
+};
+let initialized=false;
+data.forEach(item=>{if(item.inferredDate){item.manualCartridges=true}else if(item.date){calculateFromInstallationDate(item);initialized=true}else if(!item.manualCartridges&&inferInstallationDate(item)){initialized=true}});
+if(initialized){saveData();window.render()}else{window.render()}
+rows.addEventListener('input',event=>{
+const field=event.target;
+if(field.dataset.k!=='date'||field.dataset.i===undefined)return;
+const normalized=normalizedDate(field.value),item=data[Number(field.dataset.i)];
+if(normalized&&item){item.date=normalized;delete item.inferredDate;item.manualCartridges=false;calculateFromInstallationDate(item);saveData();window.render()}
+});
+rows.addEventListener('input',event=>{
+const field=event.target;
+if(!field.matches('input.measurement')||field.dataset.i===undefined)return;
+const item=data[Number(field.dataset.i)];
+if(item){item.calculatedFromDate=false;item.manualCartridges=true}
+});
+rows.addEventListener('change',event=>{
+const field=event.target;
+if(field.dataset.k==='date'&&field.dataset.i!==undefined){const item=data[Number(field.dataset.i)];if(item?.date){delete item.inferredDate;item.manualCartridges=false;calculateFromInstallationDate(item);saveData();window.render()}return}
+if(!field.matches('input.measurement')||field.dataset.i===undefined)return;
+const item=data[Number(field.dataset.i)];
+if(item){item.manualCartridges=true;item.calculatedFromDate=false;if(!item.date&&inferInstallationDate(item)){item.manualCartridges=true}saveData();window.render()}
+});
+})()
+</script>
+<style>
+.row-actions{display:flex;gap:6px;white-space:nowrap}.row-actions .btn{padding:6px 8px;font-size:11px}.btn.edit{background:#164767;border:1px solid #2d789e}
+</style>
+<script>
+(function(){
+const modal=$('addModal'),form=$('addForm'),addButton=$('add'),cancelButton=$('cancelAdd');
+if(!modal||!form||!addButton)return;
+let editingIndex=null;
+const persist=()=>{const serialized=JSON.stringify(data);localStorage.setItem('skf-system24-data',serialized);localStorage.setItem('skf-real-data',serialized)};
+const mergeMissingEquipment=()=>{
+data=data.filter(item=>!['PENDIENTE-TONELLO-1','PENDIENTE-TONELLO-2'].includes(item.af));
+data.forEach(item=>{if(item.af==='AF155709-10')item.name='LAVADORA METODOZONE 1';if(item.af==='AF155710-10')item.name='LAVADORA METODOZONE 2'});
+const known=new Set(data.map(item=>item.af));
+EQUIPMENT.forEach(([af,name])=>{if(!known.has(af))data.push({af,name,date:'',operator:'',notes:'',point:'Doble punto',cartucho1:0,cartucho2:0,userDate:false})});
+[['AF123199-10','LAVADORA TONELLO G1 70 LD1 - 1'],['AF149767-10','LAVADORA TONELLO G1 70 LD1 - 2']].forEach(([af,name])=>{if(!data.some(item=>item.af===af))data.push({af,name,date:'',operator:'',notes:'',point:'Doble punto',cartucho1:125,cartucho2:125,userDate:false})});
+persist();
+};
+mergeMissingEquipment();
+form.elements.date.required=false;
+const previousRender=window.render;
+window.render=function(){
+previousRender();
+document.querySelectorAll('#rows tr').forEach(row=>{
+const field=row.querySelector('[data-i]');
+if(!field||row.querySelector('[data-edit]'))return;
+const actions=row.lastElementChild,remove=actions?.querySelector('[data-remove]');
+if(!actions||!remove)return;
+actions.className='row-actions';
+const edit=document.createElement('button');edit.type='button';edit.className='btn edit';edit.dataset.edit=field.dataset.i;edit.title='Modificar equipo';edit.textContent='Modificar';
+actions.insertBefore(edit,remove);remove.textContent='Eliminar';remove.title='Eliminar equipo';
+});
+const counters=document.querySelectorAll('.right .panel:last-child .tech strong');
+if(counters.length>=3){counters[0].textContent=data.length;counters[1].textContent=data.length*2;counters[2].textContent=data.length*2}
+};
+const openForm=(item,index)=>{
+editingIndex=index;form.reset();form.elements.af.value=item.af||'';form.elements.name.value=item.name||'';form.elements.date.value=item.date||'';form.elements.operator.value=item.operator||'';form.elements.cartucho1.value=item.cartucho1??0;form.elements.cartucho2.value=item.cartucho2??0;form.elements.notes.value=item.notes||'';form.elements.point.value=item.point||'Doble punto';form.querySelector('h2').textContent='Modificar equipo y lubricadores';form.querySelector('[type="submit"]').textContent='Guardar cambios';modal.classList.add('open');form.elements.af.focus();
+};
+addButton.onclick=()=>{editingIndex=null;form.reset();form.elements.date.required=false;form.querySelector('h2').textContent='Registrar equipo y lubricadores';form.querySelector('[type="submit"]').textContent='Guardar equipo';modal.classList.add('open');form.elements.af.focus()};
+if(cancelButton)cancelButton.onclick=()=>{editingIndex=null;modal.classList.remove('open')};
+form.onsubmit=event=>{
+event.preventDefault();const values=new FormData(form),item={af:String(values.get('af')||'').trim().toUpperCase(),name:String(values.get('name')||'').trim(),date:String(values.get('date')||''),operator:String(values.get('operator')||'').trim(),notes:String(values.get('notes')||'').trim(),point:values.get('point'),cartucho1:values.get('cartucho1')===''?'':Number(values.get('cartucho1'))||0,cartucho2:values.get('cartucho2')===''?'':Number(values.get('cartucho2'))||0,userDate:Boolean(values.get('date'))};
+if(editingIndex===null)data.push(item);else data[editingIndex]=item;
+persist();modal.classList.remove('open');editingIndex=null;window.render();toast();
+};
+$('rows').addEventListener('click',event=>{const button=event.target.closest('[data-edit]');if(button)openForm(data[Number(button.dataset.edit)],Number(button.dataset.edit))});
+window.render();
+})();
+</script>
+<script>
+(function(){
+const provisional=new Set(['PENDIENTE-TONELLO-1','PENDIENTE-TONELLO-2']),previousCalc=window.calc;
+data.forEach(item=>{if(provisional.has(item.af)){item.date='';delete item.inferredDate;item.userDate=false}});localStorage.setItem('skf-system24-data',JSON.stringify(data));localStorage.setItem('skf-real-data',JSON.stringify(data));
+window.calc=function(item){const result=previousCalc(item);if(provisional.has(item.af)&&item.cartucho1===''&&item.cartucho2==='')return {...result,cartucho1:125,cartucho2:125,used:0,remain:250,pct:0,left:250/(result.daily||1.37),change:null};return result};
+window.render();
+})();
+</script>
+<script>
+(function(){
+const specialAf='AF076158-10',table=document.querySelector('.grid'),head=table?.querySelector('thead tr'),rowsElement=$('rows');
+if(!table||!head||!rowsElement)return;
+const persist=()=>{const serialized=JSON.stringify(data);localStorage.setItem('skf-system24-data',serialized);localStorage.setItem('skf-real-data',serialized)};
+const special=data.find(item=>item.af===specialAf);if(special&&special.cartucho3===undefined){special.cartucho3=125;persist()}
+if(!head.querySelector('[data-cartucho3-head]')){const cell=document.createElement('th');cell.textContent='Cartucho 3 (ml)';cell.dataset.cartucho3Head='1';head.insertBefore(cell,head.children[5])}
+const previousCalc=window.calc;window.calc=function(item){const result=previousCalc(item);if(item.af!==specialAf)return result;const cartucho1=Math.min(125,Math.max(0,Number(item.cartucho1)||0)),cartucho2=Math.min(125,Math.max(0,Number(item.cartucho2)||0)),cartucho3=Math.min(125,Math.max(0,Number(item.cartucho3)||0)),remain=cartucho1+cartucho2+cartucho3,used=Math.max(0,375-remain);return{...result,cartucho1,cartucho2,cartucho3,used,remain,pct:used/375*100,left:remain/(result.daily||1.37),totalCapacity:375}};
+const addThirdColumn=()=>document.querySelectorAll('#rows tr').forEach(row=>{const field=row.querySelector('[data-i]');if(!field||row.querySelector('[data-cartucho3-cell]'))return;const index=Number(field.dataset.i),item=data[index],cell=document.createElement('td');cell.dataset.cartucho3Cell='1';cell.innerHTML=item.af===specialAf?'<input class="measurement" type="number" min="0" max="125" step="1" value="'+(item.cartucho3??125)+'" data-i="'+index+'" data-k="cartucho3" aria-label="Cartucho 3">':'-';row.insertBefore(cell,row.children[5]);if(item.af===specialAf){const result=window.calc(item);row.children[7].innerHTML='<b>'+fmt(result.used)+' ml</b>';row.children[8].innerHTML='<div class="ring" style="--p:'+Math.min(result.pct,100)+';--c:var(--green)"><span>'+Math.round(result.pct)+'%</span></div>'}});
+const previousRender=window.render;window.render=function(){previousRender();addThirdColumn()};window.render();
+rowsElement.addEventListener('input',event=>{const field=event.target;if(field.dataset.k==='cartucho3'&&field.dataset.i!==undefined){data[Number(field.dataset.i)].cartucho3=Math.min(125,Math.max(0,Number(field.value)||0));persist()}});
+rowsElement.addEventListener('change',event=>{const field=event.target;if(field.dataset.k==='cartucho3'&&field.dataset.i!==undefined){data[Number(field.dataset.i)].cartucho3=Math.min(125,Math.max(0,Number(field.value)||0));persist();window.render()}});
+})();
+</script>
+</body></html>
