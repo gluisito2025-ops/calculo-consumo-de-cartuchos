@@ -3,6 +3,7 @@
 (function(){
 const META='__skf_shared_meta__';
 let remoteReady=false,sharedImage=localStorage.getItem('skf-image')||'',timer;
+  const KEY='skf-real-data'; const $=id=>document.getElementById(id);
 const localState=()=>{try{const raw=localStorage.getItem('skf-real-data')||localStorage.getItem(KEY);const value=raw?JSON.parse(raw):null;return Array.isArray(value)?value.filter(item=>item&&item.af):null}catch(error){return null}};
 const persistLocal=()=>{const value=JSON.stringify(data);localStorage.setItem(KEY,value);localStorage.setItem('skf-real-data',value)};
 const pushState=async()=>{if(!remoteReady)return;const equipment=data.filter(item=>item&&item.__skf_shared_meta!==true);if(sharedImage)equipment.push({__skf_shared_meta:META,image:sharedImage});try{await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({equipment})})}catch(error){console.warn('No se pudo sincronizar el estado compartido:',error)}};
